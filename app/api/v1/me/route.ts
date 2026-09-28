@@ -67,11 +67,21 @@ export async function GET(req: NextRequest) {
          WHERE j.path LIKE ? AND t.status NOT IN ('TRANSFER_COMPLETED', 'REJECTED', 'CANCELLED_BY_APPLICANT', 'COUNTERPARTY_DECLINED')`
       ).get(`${jurisdictionPath}%`) as { count: number };
 
+      const roleToDashboard: Record<string, string> = {
+        DIV_COMM: '/dashboard/division',
+        DIST_COLL: '/dashboard/district',
+        SDO: '/dashboard/sdo',
+        TEHSILDAR: '/dashboard/tehsildar',
+        CIRCLE_OFF: '/dashboard/circle',
+        VILLAGE_OFF: '/dashboard/village',
+        CITIZEN: '/dashboard/citizen',
+      };
+
       return successResponse({
         ...officer,
         role: user.role,
         roleLevel: user.roleLevel,
-        dashboardRoute: `/dashboard/${user.role === 'DIV_COMM' ? 'division' : user.role === 'DIST_COLL' ? 'district' : user.role.toLowerCase()}`,
+        dashboardRoute: roleToDashboard[user.role] || '/dashboard/citizen',
         activeCases: caseCount.count,
         permissions: user.permissions,
       });

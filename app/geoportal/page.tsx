@@ -283,8 +283,8 @@ export default function GeoPortalPage() {
       <header className="h-16 px-4 shrink-0 bg-slate-900/90 backdrop-blur-md border-b border-slate-800 flex items-center justify-between z-20">
         {/* Brand & Title */}
         <div className="flex items-center gap-4">
-          <Link href="/" className="flex items-center gap-2.5 group">
-            <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-amber-600 to-emerald-700 flex items-center justify-center text-white font-bold text-lg shadow-md group-hover:scale-105 transition-transform">
+          <div className="flex items-center gap-2.5 select-none">
+            <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-amber-600 to-emerald-700 flex items-center justify-center text-white font-bold text-lg shadow-md">
               भू
             </div>
             <div>
@@ -293,7 +293,7 @@ export default function GeoPortalPage() {
               </div>
               <div className="text-[11px] text-slate-400 leading-tight">Sonitpur Revenue Cadastre & GIS Map</div>
             </div>
-          </Link>
+          </div>
 
           <div className="hidden md:flex items-center gap-1 ml-4 border-l border-slate-800 pl-4">
             <span className="text-xs text-slate-400 font-medium mr-1">Village:</span>
@@ -388,19 +388,35 @@ export default function GeoPortalPage() {
 
           {/* User Nav */}
           {isAuthenticated ? (
-            <Link
-              href={userRole === 'CITIZEN' ? '/dashboard/citizen' : '/dashboard/circle'}
-              className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-medium text-emerald-400"
+            <button
+              type="button"
+              onClick={() => {
+                const roleMap: Record<string, string> = {
+                  CITIZEN: '/dashboard/citizen',
+                  VILLAGE_OFF: '/dashboard/village',
+                  CIRCLE_OFF: '/dashboard/circle',
+                  TEHSILDAR: '/dashboard/tehsildar',
+                  SDO: '/dashboard/sdo',
+                  DIST_COLL: '/dashboard/district',
+                  DIV_COMM: '/dashboard/division',
+                };
+                window.location.href = roleMap[userRole] || '/dashboard/citizen';
+              }}
+              className="px-3.5 py-1.5 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/30 text-xs font-semibold text-emerald-300 flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"
+              id="geoportal-dashboard-nav-btn"
+              title="Return to your dashboard"
             >
-              Dashboard ({userRole})
-            </Link>
+              <span className="material-symbols-outlined text-sm">arrow_back</span>
+              <span>← Return to {userRole === 'CITIZEN' ? 'Citizen' : userRole} Dashboard</span>
+            </button>
           ) : (
-            <Link
-              href="/login"
-              className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-medium text-slate-200"
+            <button
+              type="button"
+              onClick={() => { window.location.href = '/login'; }}
+              className="px-3.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-medium text-slate-200 cursor-pointer"
             >
               Sign In
-            </Link>
+            </button>
           )}
         </div>
       </header>

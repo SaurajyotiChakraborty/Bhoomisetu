@@ -10,7 +10,7 @@ import { encrypt as realEncrypt, maskAadhaar, maskPAN } from '../auth/encryption
 const PG_URL = process.env.DATABASE_URL || 'postgresql://postgres:password@localhost:5432/bhoomisetu';
 
 const DEV_PASSWORD = 'Demo@12345';
-const DEV_PASSWORD_HASH = '$argon2id$v=19$m=65536,t=3,p=4$wzfXIGhURuqahPA4sOaGUA$JHkY0Tnui/qZUZLdaEAM68IZ1bn0+p2mCMRzArYijOA';
+const DEV_PASSWORD_HASH = '$argon2id$v=19$m=65536,t=3,p=4$6VHk9SZoG3vVB3ziiydZ8w$6TmkWiZXWqEkOUPho8PS45y29Tw0y84YEPYyqAEpeTk';
 
 function encrypt(value: string): string {
   return realEncrypt(value);

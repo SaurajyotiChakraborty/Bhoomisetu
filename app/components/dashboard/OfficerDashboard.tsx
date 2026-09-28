@@ -127,6 +127,7 @@ export default function OfficerDashboard({ roleFilter }: { roleFilter?: string }
   }
 
   async function handleLogout() {
+    await fetch('/api/v1/auth/logout', { method: 'POST' }).catch(() => {});
     document.cookie = 'access_token=; Max-Age=0; path=/';
     document.cookie = 'refresh_token=; Max-Age=0; path=/';
     router.push('/login');
@@ -227,10 +228,19 @@ export default function OfficerDashboard({ roleFilter }: { roleFilter?: string }
             <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 hover:bg-[var(--color-bg-sidebar)] rounded-lg text-[var(--color-text)] -ml-2" title="Toggle Sidebar">
               ☰
             </button>
-            <Link href="/" className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab('transfers');
+                setSelectedTransfer(null);
+                setSelectedDispute(null);
+              }}
+              className="flex items-center gap-2 hover:opacity-85 transition-opacity text-left cursor-pointer"
+              title="Officer Dashboard Overview"
+            >
               <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-600 to-emerald-700 flex items-center justify-center text-white font-bold text-sm shadow-lg shadow-emerald-500/20 hover:scale-105 transition-transform">भू</div>
               <span className="font-semibold hidden sm:block">Bhoomisetu</span>
-            </Link>
+            </button>
             <span className="text-[var(--color-border)]">|</span>
             <div className="flex items-center gap-2">
               <span className="text-lg">{roleIcon}</span>

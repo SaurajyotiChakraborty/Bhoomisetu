@@ -398,6 +398,62 @@ export default function CitizenDashboard() {
     router.push('/login');
   }
 
+  function downloadTaxReceipt(tax: any) {
+    const printWindow = window.open('', '_blank', 'width=800,height=700');
+    if (!printWindow) return;
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Khajana Tax Receipt - ${tax.receipt_number || tax.parcel_uid}</title>
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 40px; color: #1e293b; line-height: 1.5; }
+            .header { text-align: center; border-bottom: 2px solid #0f766e; padding-bottom: 16px; margin-bottom: 24px; }
+            .badge { display: inline-block; background: #dcfce7; color: #15803d; padding: 4px 12px; border-radius: 9999px; font-weight: bold; font-size: 12px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+            th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #e2e8f0; font-size: 14px; }
+            th { background: #f8fafc; color: #475569; font-weight: 600; width: 40%; }
+            .footer { margin-top: 40px; font-size: 11px; color: #94a3b8; text-align: center; border-top: 1px solid #e2e8f0; padding-top: 16px; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h2 style="margin: 0; color: #0f766e;">Government of Assam • Revenue & Disaster Management</h2>
+            <h3 style="margin: 6px 0 0 0; color: #334155;">e-Khajana Official Land Revenue Receipt</h3>
+            <p style="margin: 4px 0 0 0; font-size: 12px; color: #64748b;">Financial Year: 2025-2026</p>
+          </div>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+            <div><strong>Receipt Number:</strong> ${tax.receipt_number || 'REC-KHJ-2026-00041'}</div>
+            <div class="badge">STATUS: PAID</div>
+          </div>
+          <table>
+            <tr><th>Owner Name</th><td>${tax.owner_name}</td></tr>
+            <tr><th>Citizen UID</th><td>${user?.citizen_uid || '-'}</td></tr>
+            <tr><th>Parcel UID</th><td>${tax.parcel_uid}</td></tr>
+            <tr><th>Survey Number</th><td>${tax.survey_number}</td></tr>
+            <tr><th>Village</th><td>${tax.village}</td></tr>
+            <tr><th>Land Classification</th><td>${tax.land_type}</td></tr>
+            <tr><th>Base Assessment</th><td>₹${Number(tax.base_liability || 0).toLocaleString('en-IN')}</td></tr>
+            <tr><th>Arrears / Cess</th><td>₹${Number(tax.arrears || 0).toLocaleString('en-IN')}</td></tr>
+            <tr style="font-size: 15px; font-weight: bold; background: #f0fdf4;">
+              <th>Total Paid Amount</th>
+              <td style="color: #15803d;">₹${Number(tax.total_outstanding || tax.base_liability || 0).toLocaleString('en-IN')}</td>
+            </tr>
+            <tr><th>Payment Mode</th><td>${tax.payment_mode || 'ONLINE (Treasury e-GRAS)'}</td></tr>
+            <tr><th>Receipt Generated</th><td>${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</td></tr>
+          </table>
+          <div class="footer">
+            This is a computer-generated statutory e-Khajana receipt issued under Assam Land Revenue Regulation, 1886. Requires no physical signature.
+          </div>
+          <script>
+            window.onload = function() { window.print(); };
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[var(--color-bg)]">
@@ -426,12 +482,20 @@ export default function CitizenDashboard() {
             <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 hover:bg-[var(--color-bg-hover)] rounded-lg text-[var(--color-text-secondary)] -ml-2" title="Toggle Sidebar">
               <span className="material-symbols-outlined text-xl">menu</span>
             </button>
-            <Link href="/" className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab('list');
+                setSelectedParcel(null);
+              }}
+              className="flex items-center gap-2 hover:opacity-85 transition-opacity text-left cursor-pointer"
+              title="Citizen Dashboard Overview"
+            >
               <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-600 to-emerald-700 flex items-center justify-center text-white font-bold text-sm shadow-lg shadow-emerald-500/20 hover:scale-105 transition-transform">
                 भू
               </div>
               <span className="font-bold hidden sm:block text-[var(--color-text)]">Bhoomisetu</span>
-            </Link>
+            </button>
             <span className="text-[var(--color-border)]">|</span>
             <span className="text-sm text-[var(--color-text-secondary)]">Citizen Dashboard</span>
           </div>
@@ -926,7 +990,7 @@ export default function CitizenDashboard() {
                           </div>
                           
                           {tax.status === 'PAID' ? (
-                            <button className="btn btn-outline btn-sm text-green-600 border-green-600 hover:bg-green-600 hover:text-white" onClick={() => alert('Downloading Receipt: ' + tax.receipt_number)}>
+                            <button className="btn btn-outline btn-sm text-green-600 border-green-600 hover:bg-green-600 hover:text-white" onClick={() => downloadTaxReceipt(tax)}>
                               📄 Download Receipt
                             </button>
                           ) : (

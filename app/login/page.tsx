@@ -15,8 +15,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const executeLogin = async (id: string, pass: string, m: LoginMode) => {
     setError('');
     setLoading(true);
 
@@ -24,7 +23,7 @@ export default function LoginPage() {
       const res = await fetch('/api/v1/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ identifier, password, mode }),
+        body: JSON.stringify({ identifier: id, password: pass, mode: m }),
       });
 
       const data = await res.json();
@@ -39,7 +38,7 @@ export default function LoginPage() {
         return;
       }
 
-      // Redirect to role dashboard
+      // Redirect directly to role dashboard
       router.push(data.user.dashboardRoute);
     } catch {
       setError('Connection failed. Please try again.');
@@ -48,75 +47,65 @@ export default function LoginPage() {
     }
   };
 
-  return (
-    <div className="min-h-screen flex">
-      {/* Left — Dark branding panel */}
-      <div className="hidden lg:flex lg:w-[480px] xl:w-[540px] flex-col justify-between relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-[#0F172A] via-[#1E1B4B] to-[#0F172A]" />
-        <div className="absolute inset-0" style={{
-          background: 'radial-gradient(ellipse at 20% 50%, rgba(99, 102, 241, 0.15), transparent 60%)',
-        }} />
-        <div className="absolute inset-0 opacity-[0.03]" style={{
-          backgroundImage: `url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' stroke='%23ffffff' stroke-width='0.5'%3E%3Crect x='0' y='0' width='40' height='40'/%3E%3C/g%3E%3C/svg%3E")`,
-        }} />
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    executeLogin(identifier, password, mode);
+  };
 
-        <div className="relative z-10 p-10">
-          <Link href="/" className="flex items-center gap-3 mb-16">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-600 to-emerald-700 flex items-center justify-center text-white font-bold text-lg shadow-lg shadow-emerald-500/20 hover:scale-105 transition-transform">
+  const handleQuickLogin = (id: string, m: LoginMode) => {
+    setIdentifier(id);
+    setPassword('Demo@12345');
+    setMode(m);
+    setError('');
+  };
+
+  return (
+    <div className="min-h-screen flex flex-col justify-between bg-[var(--color-bg)] relative overflow-hidden py-10 px-4 sm:px-6">
+      {/* Ambient background glow */}
+      <div className="absolute inset-0 bg-gradient-to-br from-[#0F172A] via-[#1E1B4B] to-[#0F172A]" />
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          background: 'radial-gradient(ellipse at 50% 30%, rgba(99, 102, 241, 0.15), transparent 70%)',
+        }}
+      />
+
+      {/* Centralized Login Container */}
+      <div className="w-full max-w-[460px] mx-auto my-auto relative z-10 animate-fade-in">
+        {/* Top bar with Back to Home and Logo */}
+        <div className="flex items-center justify-between mb-4 px-1">
+          <Link
+            href="/"
+            className="inline-flex items-center gap-2 text-sm text-[var(--color-text-secondary)] hover:text-indigo-400 transition-colors group"
+            id="back-to-home-link"
+          >
+            <span className="material-symbols-outlined text-base group-hover:-translate-x-1 transition-transform">arrow_back</span>
+            Back to Home
+          </Link>
+          <Link href="/" className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-amber-600 to-emerald-700 flex items-center justify-center text-white font-bold text-xs shadow-md">
               भू
             </div>
-            <span className="text-white font-bold text-xl">Bhoomisetu</span>
+            <span className="font-bold text-sm text-white tracking-tight">Bhoomisetu</span>
           </Link>
+        </div>
 
-          <div>
-            <h2 className="text-3xl font-bold text-white leading-snug mb-6">
-              Secure Access to<br />Your Land Records
-            </h2>
-            <p className="text-slate-400 leading-relaxed">
-              Sign in to view your parcels on interactive maps, track transfer applications, and manage your land records through the digital revenue administration system.
+        {/* Central Card */}
+        <div className="card-glass !p-8 sm:!p-9 rounded-2xl border border-[var(--color-border)] shadow-2xl relative overflow-hidden">
+          {/* Header */}
+          <div className="text-center mb-6">
+            <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">Welcome back</h1>
+            <p className="text-[var(--color-text-secondary)] text-sm">
+              Sign in to your account to continue
             </p>
           </div>
-        </div>
-
-        <div className="relative z-10 p-10">
-          <div>
-            {[
-              { icon: 'lock', text: 'End-to-end encrypted' },
-              { icon: 'history', text: 'Every action audited' },
-              { icon: 'satellite_alt', text: 'GIS-enabled land view' },
-            ].map((item, i) => (
-              <div key={i} className="flex items-center gap-3 text-slate-500 text-sm mb-4">
-                <span className="material-symbols-outlined text-lg text-indigo-400">{item.icon}</span>
-                <span>{item.text}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Right — Login form */}
-      <div className="flex-1 flex items-center justify-center p-6 sm:p-10 bg-[var(--color-bg)]">
-        <div className="w-full max-w-[420px] animate-fade-in">
-          {/* Mobile logo */}
-          <div className="lg:hidden flex items-center gap-3 mb-10">
-            <Link href="/" className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-600 to-emerald-700 flex items-center justify-center text-white font-bold shadow-lg">
-                भू
-              </div>
-              <span className="font-bold text-lg text-[var(--color-text)]">Bhoomisetu</span>
-            </Link>
-          </div>
-
-          <h1 className="text-2xl font-bold mb-2 text-[var(--color-text-heading)]">Welcome back</h1>
-          <p className="text-[var(--color-text-secondary)] text-sm mb-8">
-            Sign in to your account to continue
-          </p>
 
           {/* Mode Tabs */}
-          <div className="flex rounded-xl bg-[var(--color-bg-card)] border border-[var(--color-border)] p-1 mb-8" id="login-mode-tabs">
+          <div className="flex rounded-xl bg-[var(--color-bg)] border border-[var(--color-border)] p-1 mb-6" id="login-mode-tabs">
             {(['CITIZEN', 'EMPLOYEE'] as LoginMode[]).map((m) => (
               <button
                 key={m}
+                type="button"
                 onClick={() => { setMode(m); setError(''); }}
                 className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2 ${
                   mode === m
@@ -132,18 +121,18 @@ export default function LoginPage() {
           </div>
 
           {/* Login Form */}
-          <form onSubmit={handleLogin}>
-            <div className="mb-5">
-              <label htmlFor="login-identifier" className="label">
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label htmlFor="login-identifier" className="label text-xs uppercase tracking-wider font-semibold text-slate-300">
                 {mode === 'CITIZEN' ? 'Citizen ID or Email' : 'Officer ID'}
               </label>
-              <div className="relative">
+              <div className="relative mt-1">
                 <span className="material-symbols-outlined text-lg text-[var(--color-text-muted)] absolute left-3 top-1/2 -translate-y-1/2">badge</span>
                 <input
                   id="login-identifier"
                   type="text"
-                  className="input !pl-10"
-                  placeholder={mode === 'CITIZEN' ? 'BSC-AS-2026-00000001 or email' : 'BSO-DVC-AS-000001'}
+                  className="input !pl-10 w-full"
+                  placeholder={mode === 'CITIZEN' ? 'Enter Citizen ID or email' : 'Enter Officer ID'}
                   value={identifier}
                   onChange={(e) => setIdentifier(e.target.value)}
                   required
@@ -152,19 +141,21 @@ export default function LoginPage() {
               </div>
             </div>
 
-            <div className="mb-5">
-              <div className="flex items-center justify-between mb-1.5">
-                <label htmlFor="login-password" className="label !mb-0">Password</label>
+            <div>
+              <div className="flex items-center justify-between">
+                <label htmlFor="login-password" className="label text-xs uppercase tracking-wider font-semibold text-slate-300 !mb-0">
+                  Password
+                </label>
                 <Link href="/forgot-password" className="text-xs text-indigo-400 hover:text-indigo-300 hover:underline">
                   Forgot password?
                 </Link>
               </div>
-              <div className="relative">
+              <div className="relative mt-1">
                 <span className="material-symbols-outlined text-lg text-[var(--color-text-muted)] absolute left-3 top-1/2 -translate-y-1/2">lock</span>
                 <input
                   id="login-password"
                   type={showPassword ? 'text' : 'password'}
-                  className="input !pl-10 !pr-10"
+                  className="input !pl-10 !pr-10 w-full"
                   placeholder="Enter your password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -174,7 +165,8 @@ export default function LoginPage() {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)] hover:text-white"
+                  tabIndex={-1}
                 >
                   <span className="material-symbols-outlined text-lg">{showPassword ? 'visibility_off' : 'visibility'}</span>
                 </button>
@@ -183,19 +175,19 @@ export default function LoginPage() {
 
             {error && (
               <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm animate-scale-in flex items-center gap-2" id="login-error">
-                <span className="material-symbols-outlined text-lg">error</span>
-                {error}
+                <span className="material-symbols-outlined text-lg shrink-0">error</span>
+                <span>{error}</span>
               </div>
             )}
 
             <button
               type="submit"
               disabled={loading}
-              className="btn btn-primary w-full btn-lg"
+              className="btn btn-primary w-full btn-lg !mt-6"
               id="login-submit"
             >
               {loading ? (
-                <span className="flex items-center gap-2">
+                <span className="flex items-center justify-center gap-2">
                   <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
@@ -203,7 +195,7 @@ export default function LoginPage() {
                   Signing in...
                 </span>
               ) : (
-                <span className="flex items-center gap-2">
+                <span className="flex items-center justify-center gap-2">
                   <span className="material-symbols-outlined text-lg">login</span>
                   Sign In
                 </span>
@@ -221,17 +213,17 @@ export default function LoginPage() {
           )}
 
           {mode === 'EMPLOYEE' && (
-            <p className="text-center text-sm text-[var(--color-text-muted)] mt-6">
+            <p className="text-center text-xs text-[var(--color-text-muted)] mt-6">
               Officer accounts are issued by your appointing authority.
               <br />Contact your superior if you need access.
             </p>
           )}
 
-          {/* Dev Quick Login */}
-          <div className="mt-8 pt-6 border-t border-[var(--color-border)]">
-            <p className="text-xs text-[var(--color-text-muted)] text-center mb-3 flex items-center justify-center gap-2">
-              <span className="material-symbols-outlined text-sm">build</span>
-              Dev Quick Login
+          {/* Dev Quick Login — Populate Credentials */}
+          <div className="mt-6 pt-5 border-t border-[var(--color-border)]">
+            <p className="text-xs text-[var(--color-text-muted)] text-center mb-3 flex items-center justify-center gap-2 font-medium">
+              <span className="material-symbols-outlined text-sm text-amber-400">key</span>
+              <span>Quick Fill Demo Credentials</span>
             </p>
             <div className="flex flex-wrap gap-2">
               {[
@@ -240,25 +232,32 @@ export default function LoginPage() {
                 { label: 'Circle Officer', id: 'BSO-CRO-AS090501-000001', mode: 'EMPLOYEE' as LoginMode },
                 { label: 'Tehsildar', id: 'BSO-TEH-AS0905-000001', mode: 'EMPLOYEE' as LoginMode },
                 { label: 'SDO', id: 'BSO-SDO-AS0905-000001', mode: 'EMPLOYEE' as LoginMode },
+                { label: 'District Collector', id: 'BSO-DCL-AS0901-000001', mode: 'EMPLOYEE' as LoginMode },
                 { label: 'Division Comm', id: 'BSO-DVC-AS-000001', mode: 'EMPLOYEE' as LoginMode },
-              ].filter(quick => quick.mode === mode).map((quick, i) => (
-                <button
-                  key={i}
-                  type="button"
-                  onClick={() => {
-                    setIdentifier(quick.id);
-                    setPassword('Demo@12345');
-                  }}
-                  className="btn btn-ghost btn-sm text-xs !border !border-[var(--color-border)] hover:!border-indigo-500/30 flex-1 min-w-[45%]"
-                  id={`dev-login-${quick.label.toLowerCase().replace(/\s/g, '-')}`}
-                >
-                  {quick.label}
-                </button>
-              ))}
+              ]
+                .filter((quick) => quick.mode === mode)
+                .map((quick, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    disabled={loading}
+                    onClick={() => handleQuickLogin(quick.id, quick.mode)}
+                    className="btn btn-ghost btn-sm text-xs !border !border-[var(--color-border)] hover:!border-indigo-500/50 hover:!bg-indigo-500/10 flex-1 min-w-[45%] text-slate-300"
+                    id={`dev-login-${quick.label.toLowerCase().replace(/[\s()]/g, '-')}`}
+                  >
+                    {quick.label}
+                  </button>
+                ))}
             </div>
           </div>
         </div>
       </div>
+
+      {/* Simple footer note */}
+      <div className="relative z-10 text-center text-xs text-[var(--color-text-muted)] mt-6">
+        © {new Date().getFullYear()} Bhoomisetu • Department of Revenue & Land Records
+      </div>
     </div>
   );
 }
+

@@ -12,6 +12,7 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [citizenUid, setCitizenUid] = useState('');
+  const [initialPassword, setInitialPassword] = useState('');
 
   const [form, setForm] = useState({
     fullName: '', email: '', mobile: '', aadhaar: '', aadhaarLinkedMobile: '',
@@ -44,6 +45,9 @@ export default function RegisterPage() {
       }
 
       setCitizenUid(data.citizenUid);
+      if (data.initialPassword) {
+        setInitialPassword(data.initialPassword);
+      }
       setStep('success');
     } catch {
       setError('Connection failed. Please try again.');
@@ -78,6 +82,16 @@ export default function RegisterPage() {
       </header>
 
       <div className="max-w-3xl mx-auto px-6 py-10 w-full flex-1">
+        {/* Back to Home link */}
+        <Link
+          href="/"
+          className="inline-flex items-center gap-2 text-sm text-[var(--color-text-secondary)] hover:text-indigo-400 mb-6 transition-colors group"
+          id="register-back-to-home-link"
+        >
+          <span className="material-symbols-outlined text-base group-hover:-translate-x-1 transition-transform">arrow_back</span>
+          Back to Home
+        </Link>
+
         {step !== 'success' && (
           <>
             {/* Step Indicator */}
@@ -285,10 +299,18 @@ export default function RegisterPage() {
             <p className="text-[var(--color-text-secondary)] mb-6">
               Your Bhoomisetu Citizen ID has been created. Your initial password has been sent to your email and mobile.
             </p>
-            <div className="inline-block p-4 rounded-xl bg-[var(--color-bg)] border border-[var(--color-border)] mb-6">
+            <div className="inline-block p-4 rounded-xl bg-[var(--color-bg)] border border-[var(--color-border)] mb-4">
               <div className="label">Your Citizen ID (permanent, immutable)</div>
               <div className="text-2xl font-bold font-mono text-indigo-400">{citizenUid}</div>
             </div>
+
+            {initialPassword && (
+              <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 max-w-sm mx-auto mb-6 text-center">
+                <div className="text-xs uppercase tracking-wider font-semibold text-amber-400 mb-1">Generated Password (Demo Mode)</div>
+                <div className="text-xl font-bold font-mono text-white select-all">{initialPassword}</div>
+                <div className="text-xs text-slate-400 mt-1">Copy this password to sign in now</div>
+              </div>
+            )}
             <p className="text-sm text-[var(--color-text-muted)] mb-8 flex items-center justify-center gap-2">
               <span className="material-symbols-outlined text-amber-400 text-lg">warning</span>
               Save this ID — it can never be changed. Check your email for the initial password.

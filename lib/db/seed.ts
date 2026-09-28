@@ -26,7 +26,7 @@ const now = new Date().toISOString();
 
 const DEV_PASSWORD = 'Demo@12345';
 // Cryptographically verified Argon2id hash of 'Demo@12345'
-const DEV_PASSWORD_HASH = '$argon2id$v=19$m=65536,t=3,p=4$wzfXIGhURuqahPA4sOaGUA$JHkY0Tnui/qZUZLdaEAM68IZ1bn0+p2mCMRzArYijOA';
+const DEV_PASSWORD_HASH = '$argon2id$v=19$m=65536,t=3,p=4$6VHk9SZoG3vVB3ziiydZ8w$6TmkWiZXWqEkOUPho8PS45y29Tw0y84YEPYyqAEpeTk';
 
 function uuid(prefix: string, index: number): string {
   return `${prefix}-${String(index).padStart(8, '0')}`;

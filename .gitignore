@@ -27,6 +27,14 @@ storage/uploads/*
 .env.development.local
 .env.test.local
 .env.production.local
+*.pem
+*.key
+*.cert
+*.crt
+
+# Credentials and sensitive output
+data/seed-credentials.md
+*credentials*
 
 # Logs
 *.log
@@ -47,17 +55,42 @@ test-results/
 Thumbs.db
 ehthumbs.db
 
-# IDE & Editor configurations
+# IDE, Editor configurations & AI Assistant files
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
-
-# Temporary agent & scratch files
 .agents/
+.antigravity/
+.gemini/
 scratch/
+temp/
+tmp/
+*.tmp
+*.bak
 
 # Markdown documentation files
 *.md
 **/*.md
+*.markdown
+**/*.markdown
+
+# Office, PDF & Report documents
+*.docx
+*.doc
+*.pdf
+*.pptx
+*.ppt
+*.xlsx
+*.xls
+*.csv
+*.txt
+
+# Documentation directory
+docs/
+
+# Media & Recordings
+*.webp
+*.mp4
+*.webm
