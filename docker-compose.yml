@@ -1,0 +1,60 @@
+
+services:
+  # PostgreSQL with PostGIS extension for spatial data (Parcels)
+  db:
+    image: postgis/postgis:15-3.3-alpine
+    container_name: bhoomisetu_postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: bhoomisetu
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d bhoomisetu"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Redis for Job Queues (BullMQ) and Session Caching
+  redis:
+    image: redis:7-alpine
+    container_name: bhoomisetu_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # MinIO for S3-compatible File Storage (Uploads, DSC signatures)
+  minio:
+    image: minio/minio:latest
+    container_name: bhoomisetu_minio
+    environment:
+      MINIO_ROOT_USER: admin
+      MINIO_ROOT_PASSWORD: password123
+    ports:
+      - "9000:9000"   # API Port
+      - "9001:9001"   # Web Console Port
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+  redis_data:
+  minio_data:
