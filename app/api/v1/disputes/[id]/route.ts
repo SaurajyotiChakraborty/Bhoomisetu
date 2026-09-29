@@ -1,14 +1,7 @@
 import { NextRequest } from 'next/server';
+import { getDb } from '@/lib/db';
 import { requireAuth, errorResponse, successResponse } from '@/lib/api/helpers';
-import Database from 'better-sqlite3';
-import path from 'path';
 
-function getDb() {
-  const DB_PATH = process.env.DATABASE_URL || path.join(process.cwd(), 'data', 'bhoomisetu.db');
-  const db = new Database(DB_PATH);
-  db.pragma('foreign_keys = ON');
-  return db;
-}
 
 export async function POST(
   req: NextRequest,
@@ -34,7 +27,7 @@ export async function POST(
       return errorResponse('VALIDATION_ERROR', 'Action (target status) is required', 400);
     }
 
-    const dispute = db.prepare(`
+    const dispute = await db.prepare(`
       SELECT d.*, j.path as jurisdiction_path
       FROM land_disputes d
       JOIN parcels p ON d.parcel_id = p.id
@@ -52,7 +45,7 @@ export async function POST(
 
     const now = new Date().toISOString();
     
-    db.prepare('UPDATE land_disputes SET status = ?, resolution_notes = ?, assigned_officer_id = ?, updated_at = ? WHERE id = ?')
+    await db.prepare('UPDATE land_disputes SET status = ?, resolution_notes = ?, assigned_officer_id = ?, updated_at = ? WHERE id = ?')
       .run(action, resolutionNotes || dispute.resolution_notes, user.id, now, dispute.id);
 
     return successResponse({

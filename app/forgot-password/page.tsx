@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { ArrowLeft, Wrench, KeyRound, Headphones } from 'lucide-react';
 
 export default function ForgotPasswordPage() {
   return (
@@ -23,7 +24,7 @@ export default function ForgotPasswordPage() {
             className="inline-flex items-center gap-2 text-sm text-[var(--color-text-secondary)] hover:text-indigo-400 transition-colors group"
             id="back-to-login-link"
           >
-            <span className="material-symbols-outlined text-base group-hover:-translate-x-1 transition-transform">arrow_back</span>
+            <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
             Back to Sign In
           </Link>
           <Link href="/" className="flex items-center gap-2">
@@ -38,7 +39,7 @@ export default function ForgotPasswordPage() {
         <div className="card-glass !p-8 sm:!p-9 rounded-2xl border border-[var(--color-border)] shadow-2xl relative overflow-hidden text-center">
           {/* Construction / In Development Icon */}
           <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center mx-auto mb-5 shadow-lg shadow-amber-500/10">
-            <span className="material-symbols-outlined text-3xl">construction</span>
+            <Wrench className="w-8 h-8" />
           </div>
 
           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs font-semibold uppercase tracking-wider mb-4">
@@ -54,7 +55,7 @@ export default function ForgotPasswordPage() {
           {/* Guidance Box */}
           <div className="bg-[var(--color-bg)] rounded-xl border border-[var(--color-border)] p-4 text-left space-y-3 mb-6">
             <div className="flex items-start gap-3">
-              <span className="material-symbols-outlined text-indigo-400 text-lg shrink-0 mt-0.5">key</span>
+              <KeyRound className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5" />
               <div className="text-xs">
                 <span className="font-semibold text-slate-200">Demo Environment Access:</span>
                 <p className="text-[var(--color-text-muted)] mt-0.5">
@@ -64,7 +65,7 @@ export default function ForgotPasswordPage() {
             </div>
 
             <div className="flex items-start gap-3 pt-2 border-t border-[var(--color-border)]">
-              <span className="material-symbols-outlined text-emerald-400 text-lg shrink-0 mt-0.5">support_agent</span>
+              <Headphones className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
               <div className="text-xs">
                 <span className="font-semibold text-slate-200">Official Assistance:</span>
                 <p className="text-[var(--color-text-muted)] mt-0.5">
@@ -76,10 +77,10 @@ export default function ForgotPasswordPage() {
 
           <Link
             href="/login"
-            className="btn btn-primary w-full btn-lg"
+            className="btn btn-primary w-full btn-lg flex items-center justify-center gap-2"
             id="return-to-login-btn"
           >
-            <span className="material-symbols-outlined text-lg mr-2">arrow_back</span>
+            <ArrowLeft className="w-4 h-4" />
             Return to Sign In
           </Link>
         </div>

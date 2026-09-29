@@ -3,16 +3,9 @@
 // GET /api/v1/transfers/mine — citizen's own transfers
 
 import { NextRequest } from 'next/server';
+import { getDb } from '@/lib/db';
 import { requireAuth, errorResponse, successResponse } from '@/lib/api/helpers';
-import Database from 'better-sqlite3';
-import path from 'path';
 
-function getDb() {
-  const DB_PATH = process.env.DATABASE_URL || path.join(process.cwd(), 'data', 'bhoomisetu.db');
-  const db = new Database(DB_PATH);
-  db.pragma('foreign_keys = ON');
-  return db;
-}
 
 export async function GET(req: NextRequest) {
   const authResult = await requireAuth(req);
@@ -24,7 +17,7 @@ export async function GET(req: NextRequest) {
   try {
     if (user.role === 'CITIZEN') {
       // Citizens see their own transfers (as seller or buyer)
-      const transfers = db.prepare(`
+      const transfers = await db.prepare(`
         SELECT t.id, t.application_uid, t.transfer_type, t.consideration_amount, t.status,
                t.created_at, t.updated_at,
                p.parcel_uid, p.village, p.survey_number, p.land_type, p.area_declared_sqm,
@@ -61,7 +54,7 @@ export async function GET(req: NextRequest) {
         statusClause = `AND t.status IN (${relevantStatuses.map(s => `'${s}'`).join(',')})`;
       }
 
-      const transfers = db.prepare(`
+      const transfers = await db.prepare(`
         SELECT t.id, t.application_uid, t.transfer_type, t.consideration_amount, t.status,
                t.created_at, t.updated_at,
                p.parcel_uid, p.village, p.survey_number, p.land_type, p.area_declared_sqm,

@@ -1,6 +1,5 @@
 // Bhoomisetu — Login API (§3.5)
 // POST /api/v1/auth/login
-// ⚠️ DEV MODE: Password verification BYPASSED for workflow testing
 
 import { NextRequest, NextResponse } from 'next/server';
 import { loginSchema } from '@/lib/validations/schemas';
@@ -8,16 +7,8 @@ import { createTokenPair } from '@/lib/auth/jwt';
 import { verifyPassword } from '@/lib/auth/password';
 import { errorResponse, successResponse, createRequestId } from '@/lib/api/helpers';
 import { ROLE_PERMISSIONS } from '@/lib/config/roles';
-import Database from 'better-sqlite3';
-import path from 'path';
+import { getDb } from '@/lib/db';
 import type { RoleCode, Permission, LoginMode } from '@/lib/types';
-
-function getDb() {
-  const DB_PATH = process.env.DATABASE_URL || path.join(process.cwd(), 'data', 'bhoomisetu.db');
-  const db = new Database(DB_PATH);
-  db.pragma('foreign_keys = ON');
-  return db;
-}
 
 interface CitizenRow {
   id: string;
@@ -64,13 +55,13 @@ export async function POST(req: NextRequest) {
       const tableName = mode === 'CITIZEN' ? 'citizens' : 'officers';
 
       if (mode === 'CITIZEN') {
-        user = db.prepare(
+        user = (await db.prepare(
           'SELECT id, citizen_uid, full_name, email, status, password_hash, failed_login_attempts, locked_until FROM citizens WHERE citizen_uid = ? OR email = ?'
-        ).get(identifier, identifier) as CitizenRow | null;
+        ).get(identifier, identifier)) as CitizenRow | null;
       } else {
-        user = db.prepare(
+        user = (await db.prepare(
           'SELECT id, officer_uid, full_name, email, status, role_code, jurisdiction_id, password_hash, failed_login_attempts, locked_until FROM officers WHERE officer_uid = ? OR email = ?'
-        ).get(identifier, identifier) as OfficerRow | null;
+        ).get(identifier, identifier)) as OfficerRow | null;
       }
 
       if (!user) {
@@ -91,18 +82,13 @@ export async function POST(req: NextRequest) {
       if (user.password_hash) {
         isValidPassword = await verifyPassword(user.password_hash, password);
       }
-      
-      // Dev mode fallback for seed credentials (Demo@12345)
-      if (!isValidPassword && (password === 'Demo@12345' || password === 'Demo@1234')) {
-        isValidPassword = true;
-      }
 
       if (!isValidPassword) {
         const attempts = (user.failed_login_attempts || 0) + 1;
         const willLock = attempts >= 5;
         const lockUntil = willLock ? new Date(Date.now() + 15 * 60 * 1000).toISOString() : null;
 
-        db.prepare(`
+        await db.prepare(`
           UPDATE ${tableName} 
           SET failed_login_attempts = ?, locked_until = ?, status = CASE WHEN ? THEN 'LOCKED' ELSE status END 
           WHERE id = ?
@@ -118,7 +104,7 @@ export async function POST(req: NextRequest) {
 
       // Reset failed attempts on successful authentication
       if (user.failed_login_attempts > 0) {
-        db.prepare(`UPDATE ${tableName} SET failed_login_attempts = 0, locked_until = NULL WHERE id = ?`).run(user.id);
+        await db.prepare(`UPDATE ${tableName} SET failed_login_attempts = 0, locked_until = NULL WHERE id = ?`).run(user.id);
       }
 
 
@@ -140,14 +126,14 @@ export async function POST(req: NextRequest) {
       } else {
         const officer = user as OfficerRow;
         role = officer.role_code as RoleCode;
-        const roleRow = db.prepare('SELECT level, dashboard_route FROM roles WHERE code = ?').get(role) as { level: number; dashboard_route: string } | undefined;
+        const roleRow = (await db.prepare('SELECT level, dashboard_route FROM roles WHERE code = ?').get(role)) as { level: number; dashboard_route: string } | undefined;
         roleLevel = roleRow?.level || 7;
         dashboardRoute = roleRow?.dashboard_route || '/dashboard/citizen';
         jurisdictionId = officer.jurisdiction_id;
         uid = officer.officer_uid;
 
         // Load jurisdiction path
-        const jRow = db.prepare('SELECT path FROM jurisdictions WHERE id = ?').get(jurisdictionId) as { path: string } | undefined;
+        const jRow = (await db.prepare('SELECT path FROM jurisdictions WHERE id = ?').get(jurisdictionId)) as { path: string } | undefined;
         jurisdictionPath = jRow?.path || null;
 
         permissions = ROLE_PERMISSIONS[role] || [];
@@ -177,23 +163,27 @@ export async function POST(req: NextRequest) {
         expiresIn: tokenPair.expiresIn,
       });
 
+      const isSecure = process.env.NODE_ENV === 'production';
+
       response.cookies.set('access_token', tokenPair.accessToken, {
         httpOnly: true,
-        sameSite: 'strict',
-        secure: false, // DEV: no HTTPS
+        sameSite: 'lax',
+        secure: isSecure,
         maxAge: 15 * 60,
         path: '/',
       });
 
       response.cookies.set('refresh_token', tokenPair.refreshToken, {
         httpOnly: true,
-        sameSite: 'strict',
-        secure: false,
+        sameSite: 'lax',
+        secure: isSecure,
         maxAge: 7 * 24 * 60 * 60,
         path: '/',
       });
 
-      console.log(`✅ [DEV LOGIN] ${uid} (${role}) → ${dashboardRoute}`);
+      if (process.env.NODE_ENV !== 'production') {
+        console.log(`✅ [LOGIN] ${uid} (${role}) → ${dashboardRoute}`);
+      }
 
       return response;
     } finally {

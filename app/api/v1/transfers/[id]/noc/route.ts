@@ -3,17 +3,11 @@
 // POST /api/v1/transfers/[id]/noc — Sign the NOC
 
 import { NextRequest } from 'next/server';
+import { getDb } from '@/lib/db';
 import { requireAuth, errorResponse, successResponse } from '@/lib/api/helpers';
-import Database from 'better-sqlite3';
-import path from 'path';
 import crypto from 'crypto';
+import { computeSHA256 } from '@/lib/auth/encryption';
 
-function getDb() {
-  const DB_PATH = process.env.DATABASE_URL || path.join(process.cwd(), 'data', 'bhoomisetu.db');
-  const db = new Database(DB_PATH);
-  db.pragma('foreign_keys = ON');
-  return db;
-}
 
 export async function GET(
   req: NextRequest,
@@ -27,7 +21,7 @@ export async function GET(
 
   try {
     // Fetch transfer with parcel + party details
-    const transfer = db.prepare(`
+    const transfer = await db.prepare(`
       SELECT t.id, t.application_uid, t.status, t.transfer_type, t.consideration_amount,
              p.parcel_uid, p.village, p.survey_number, p.land_type, p.area_declared_sqm,
              p.boundary_north, p.boundary_south, p.boundary_east, p.boundary_west,
@@ -48,7 +42,7 @@ export async function GET(
     }
 
     // Fetch existing NOC signatures
-    const signatures = db.prepare(`
+    const signatures = await db.prepare(`
       SELECT ns.*, c.full_name as signer_name, c.citizen_uid as signer_uid
       FROM noc_signatures ns
       JOIN citizens c ON ns.signer_id = c.id
@@ -60,16 +54,16 @@ export async function GET(
     const requiredSigners: { id: string; name: string; role: string; uid: string }[] = [];
 
     // Seller is always required
-    const seller = db.prepare('SELECT id, full_name, citizen_uid FROM citizens WHERE citizen_uid = ?').get(transfer.seller_uid) as any;
+    const seller = await db.prepare('SELECT id, full_name, citizen_uid FROM citizens WHERE citizen_uid = ?').get(transfer.seller_uid) as any;
     requiredSigners.push({ id: seller.id, name: seller.full_name, role: 'SELLER', uid: seller.citizen_uid });
 
     // Buyer is always required
-    const buyer = db.prepare('SELECT id, full_name, citizen_uid FROM citizens WHERE citizen_uid = ?').get(transfer.buyer_uid) as any;
+    const buyer = await db.prepare('SELECT id, full_name, citizen_uid FROM citizens WHERE citizen_uid = ?').get(transfer.buyer_uid) as any;
     requiredSigners.push({ id: buyer.id, name: buyer.full_name, role: 'BUYER', uid: buyer.citizen_uid });
 
     // If JOINT ownership, fetch all co-owners of this parcel (excluding seller who is already listed)
     if (transfer.ownership_type === 'JOINT') {
-      const coOwners = db.prepare(`
+      const coOwners = await db.prepare(`
         SELECT c.id, c.full_name, c.citizen_uid
         FROM parcels p2
         JOIN citizens c ON p2.current_owner_id = c.id
@@ -128,7 +122,7 @@ export async function POST(
 
   try {
     // Fetch the transfer
-    const transfer = db.prepare(`
+    const transfer = await db.prepare(`
       SELECT t.*, p.ownership_type, p.parcel_uid,
              seller.citizen_uid as seller_uid, seller.id as seller_db_id,
              buyer.citizen_uid as buyer_uid, buyer.id as buyer_db_id
@@ -148,7 +142,7 @@ export async function POST(
     }
 
     // Get this citizen's DB id
-    const citizen = db.prepare('SELECT id FROM citizens WHERE citizen_uid = ?').get(user.uid) as any;
+    const citizen = await db.prepare('SELECT id FROM citizens WHERE citizen_uid = ?').get(user.uid) as any;
     if (!citizen) {
       return errorResponse('NOT_FOUND', 'Citizen not found', 404);
     }
@@ -165,7 +159,7 @@ export async function POST(
     }
 
     // Check if already signed
-    const existingSig = db.prepare(
+    const existingSig = await db.prepare(
       'SELECT id FROM noc_signatures WHERE transfer_id = ? AND signer_id = ? AND signed_at IS NOT NULL'
     ).get(transfer.id, citizen.id) as any;
 
@@ -178,17 +172,17 @@ export async function POST(
     const ip = req.headers.get('x-forwarded-for') || '127.0.0.1';
 
     // Upsert: create or update the signature record
-    const existing = db.prepare(
+    const existing = await db.prepare(
       'SELECT id FROM noc_signatures WHERE transfer_id = ? AND signer_id = ?'
     ).get(transfer.id, citizen.id) as any;
 
     if (existing) {
-      db.prepare(
+      await db.prepare(
         'UPDATE noc_signatures SET signed_at = ?, signature_hash = ?, ip_address = ? WHERE id = ?'
       ).run(now, signatureHash, ip, existing.id);
     } else {
       const sigId = crypto.randomUUID();
-      db.prepare(
+      await db.prepare(
         'INSERT INTO noc_signatures (id, transfer_id, signer_id, signer_role, signed_at, signature_hash, ip_address, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
       ).run(sigId, transfer.id, citizen.id, signerRole, now, signatureHash, ip, now);
     }
@@ -198,7 +192,7 @@ export async function POST(
     const requiredSignerIds: string[] = [transfer.seller_db_id, transfer.buyer_db_id];
 
     if (transfer.ownership_type === 'JOINT') {
-      const coOwners = db.prepare(`
+      const coOwners = await db.prepare(`
         SELECT c.id FROM parcels p2
         JOIN citizens c ON p2.current_owner_id = c.id
         WHERE p2.parcel_uid = ? AND c.id != ?
@@ -208,7 +202,7 @@ export async function POST(
       }
     }
 
-    const signedCount = db.prepare(`
+    const signedCount = await db.prepare(`
       SELECT COUNT(*) as cnt FROM noc_signatures
       WHERE transfer_id = ? AND signed_at IS NOT NULL AND signer_id IN (${requiredSignerIds.map(() => '?').join(',')})
     `).get(transfer.id, ...requiredSignerIds) as any;
@@ -217,16 +211,18 @@ export async function POST(
 
     if (allSigned) {
       // Auto-transition: MUTUAL_TOC_PENDING_SIGNATURES → MUTUAL_TOC_SIGNED
-      db.prepare('UPDATE transfers SET status = ?, updated_at = ? WHERE id = ?')
+      await db.prepare('UPDATE transfers SET status = ?, updated_at = ? WHERE id = ?')
         .run('MUTUAL_TOC_SIGNED', now, transfer.id);
 
       // Audit log
-      db.prepare(`
+      const nocChainPayload = JSON.stringify({ actor: user.uid, action: 'MUTUAL_TOC_ALL_SIGNED', entity: transfer.application_uid, at: now });
+      const nocChainHash = computeSHA256(nocChainPayload);
+      await db.prepare(`
         INSERT INTO audit_log (actor_id, actor_type, actor_role_code, actor_jurisdiction_id,
           action, entity_type, entity_id, previous_status, new_status, reason,
           ip_address, chain_hash, created_at)
-        VALUES (?, 'CITIZEN', 'CITIZEN', NULL, 'MUTUAL_TOC_ALL_SIGNED', 'TRANSFER', ?, 'MUTUAL_TOC_PENDING_SIGNATURES', 'MUTUAL_TOC_SIGNED', 'All Mutual TOC signatures collected. Forwarded to Circle Officer Queue.', ?, 'dev-chain', ?)
-      `).run(user.uid, transfer.application_uid, ip, now);
+        VALUES (?, 'CITIZEN', 'CITIZEN', NULL, 'MUTUAL_TOC_ALL_SIGNED', 'TRANSFER', ?, 'MUTUAL_TOC_PENDING_SIGNATURES', 'MUTUAL_TOC_SIGNED', 'All Mutual TOC signatures collected. Forwarded to Circle Officer Queue.', ?, ?, ?)
+      `).run(user.uid, transfer.application_uid, ip, nocChainHash, now);
 
       return successResponse({
         message: 'Mutual TOC signed! All signatures collected — forwarded to Circle Officer.',

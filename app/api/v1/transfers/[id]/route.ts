@@ -3,19 +3,13 @@
 // POST /api/v1/transfers/[id] — perform action (accept, decline, forward, etc.)
 
 import { NextRequest } from 'next/server';
+import { getDb } from '@/lib/db';
 import { requireAuth, errorResponse, successResponse, createRequestId } from '@/lib/api/helpers';
 import { TransferStateMachine } from '@/lib/state-machine/transfer-state-machine';
-import Database from 'better-sqlite3';
-import path from 'path';
 import crypto from 'crypto';
+import { computeSHA256 } from '@/lib/auth/encryption';
 import type { TransferStatus } from '@/lib/types';
 
-function getDb() {
-  const DB_PATH = process.env.DATABASE_URL || path.join(process.cwd(), 'data', 'bhoomisetu.db');
-  const db = new Database(DB_PATH);
-  db.pragma('foreign_keys = ON');
-  return db;
-}
 
 export async function GET(
   req: NextRequest,
@@ -29,7 +23,7 @@ export async function GET(
   const db = getDb();
 
   try {
-    const transfer = db.prepare(`
+    const transfer = await db.prepare(`
       SELECT t.*,
              p.parcel_uid, p.village, p.survey_number, p.land_type, p.area_declared_sqm,
              p.area_computed_sqm, p.geometry, p.encumbrance_status,
@@ -63,7 +57,7 @@ export async function GET(
     const validTransitions = TransferStateMachine.getValidTransitions(appForSM, user);
 
     // Get timeline from audit log
-    const timeline = db.prepare(`
+    const timeline = await db.prepare(`
       SELECT action, previous_status, new_status, reason, created_at,
              actor_id, actor_role_code
       FROM audit_log
@@ -100,7 +94,7 @@ export async function POST(
       return errorResponse('VALIDATION_ERROR', 'Action (target status) is required', 400, requestId);
     }
 
-    const transfer = db.prepare(`
+    const transfer = await db.prepare(`
       SELECT t.*, seller.citizen_uid as seller_uid, buyer.citizen_uid as buyer_uid,
              j.path as jurisdiction_path
       FROM transfers t
@@ -151,20 +145,20 @@ export async function POST(
     const now = new Date().toISOString();
     const previousStatus = transfer.status;
 
-    const executeTransaction = db.transaction(() => {
+    await db.transaction(async () => {
       // Special handling for ON_HOLD (store previous status)
       if (action === 'ON_HOLD') {
-        db.prepare('UPDATE transfers SET status = ?, held_from_status = ?, updated_at = ? WHERE id = ?')
+        await db.prepare('UPDATE transfers SET status = ?, held_from_status = ?, updated_at = ? WHERE id = ?')
           .run(action, previousStatus, now, transfer.id);
       } else if (action === 'TRANSFER_COMPLETED') {
-        db.prepare('UPDATE transfers SET status = ?, updated_at = ?, completed_at = ? WHERE id = ?')
+        await db.prepare('UPDATE transfers SET status = ?, updated_at = ?, completed_at = ? WHERE id = ?')
           .run(action, now, now, transfer.id);
           
-        db.prepare('UPDATE parcels SET current_owner_id = ?, updated_at = ? WHERE id = ?')
+        await db.prepare('UPDATE parcels SET current_owner_id = ?, updated_at = ? WHERE id = ?')
           .run(transfer.buyer_id, now, transfer.parcel_id);
           
         const historyId = 'hist-' + crypto.randomUUID();
-        db.prepare(`
+        await db.prepare(`
           INSERT INTO ownership_history (id, parcel_id, from_owner_id, to_owner_id, transfer_type, transfer_date, application_id, approving_officer_id, consideration, created_at)
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `).run(
@@ -172,12 +166,14 @@ export async function POST(
           transfer.transfer_type, now, transfer.id, user.id, transfer.consideration_amount || 0, now
         );
       } else {
-        db.prepare('UPDATE transfers SET status = ?, updated_at = ? WHERE id = ?')
+        await db.prepare('UPDATE transfers SET status = ?, updated_at = ? WHERE id = ?')
           .run(action, now, transfer.id);
       }
 
       // Audit
-      db.prepare(`
+      const chainPayload = JSON.stringify({ actor: user.uid, action: `TRANSFER_${action}`, entity: transfer.application_uid, prev: previousStatus, next: action, at: now });
+      const chainHash = computeSHA256(chainPayload);
+      await db.prepare(`
         INSERT INTO audit_log (actor_id, actor_type, actor_role_code, actor_jurisdiction_id,
           action, entity_type, entity_id, previous_status, new_status, reason,
           ip_address, chain_hash, created_at)
@@ -193,12 +189,10 @@ export async function POST(
         action,
         reason || null,
         req.headers.get('x-forwarded-for') || '127.0.0.1',
-        'dev-chain',
+        chainHash,
         now
       );
     });
-
-    executeTransaction();
 
     console.log(`🔄 Transfer ${transfer.application_uid}: ${previousStatus} → ${action} by ${user.uid} (${user.role})`);
 

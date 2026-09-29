@@ -51,3 +51,6 @@ export function getDatabase() {
   }
   return { type: 'sqlite' as const, sqlite: sqliteInstance!, drizzle: db };
 }
+
+export { getDb, dbClient, toPgSql } from './client';
+

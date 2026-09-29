@@ -1,14 +1,7 @@
 import { NextRequest } from 'next/server';
+import { getDb } from '@/lib/db';
 import { requireAuth, errorResponse, successResponse } from '@/lib/api/helpers';
-import Database from 'better-sqlite3';
-import path from 'path';
 
-function getDb() {
-  const DB_PATH = process.env.DATABASE_URL || path.join(process.cwd(), 'data', 'bhoomisetu.db');
-  const db = new Database(DB_PATH);
-  db.pragma('foreign_keys = ON');
-  return db;
-}
 
 export async function GET(req: NextRequest) {
   const authResult = await requireAuth(req);
@@ -22,7 +15,7 @@ export async function GET(req: NextRequest) {
   const db = getDb();
 
   try {
-    const disputes = db.prepare(`
+    const disputes = await db.prepare(`
       SELECT d.*, p.parcel_uid, p.village, p.survey_number, c.full_name as complainant_name,
              j.path as jurisdiction_path
       FROM land_disputes d

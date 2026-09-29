@@ -1,12 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getDb } from '@/lib/db';
 import { requireAuth, errorResponse, successResponse } from '@/lib/api/helpers';
-import Database from 'better-sqlite3';
-import path from 'path';
 
-function getDb() {
-  const DB_PATH = process.env.DATABASE_URL || path.join(process.cwd(), 'data', 'bhoomisetu.db');
-  return new Database(DB_PATH);
-}
 
 export async function GET(req: NextRequest) {
   const authResult = await requireAuth(req);
@@ -20,7 +15,7 @@ export async function GET(req: NextRequest) {
   const db = getDb();
   
   try {
-    const officers = db.prepare(`
+    const officers = await db.prepare(`
       SELECT o.id, o.officer_uid, o.full_name, o.email, o.mobile, 
              o.role_code, o.jurisdiction_id, o.effective_from, j.name as jurisdiction_name, j.type as jurisdiction_type
       FROM officers o
@@ -63,7 +58,7 @@ export async function POST(req: NextRequest) {
     if (action === 'RESET_PASSWORD') {
       if (!officer_uid || !password) return errorResponse('VALIDATION_ERROR', 'Missing fields');
       // Update the password in database
-      const result = db.prepare('UPDATE officers SET password_hash = ? WHERE officer_uid = ?').run(password, officer_uid);
+      const result = await db.prepare('UPDATE officers SET password_hash = ? WHERE officer_uid = ?').run(password, officer_uid);
       if (result.changes === 0) return errorResponse('NOT_FOUND', 'Officer not found');
       return successResponse({ message: 'Password reset successfully' });
     }
@@ -73,12 +68,12 @@ export async function POST(req: NextRequest) {
       const created_at = new Date().toISOString();
       const effective_from = created_at;
       
-      db.prepare(`
+      await db.prepare(`
         INSERT INTO officers (id, officer_uid, full_name, email, mobile, role_code, jurisdiction_id, password_hash, effective_from, created_at, updated_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(id, officer_uid, full_name, email, phone, new_role, new_jurisdiction, password, effective_from, created_at, created_at);
 
-      db.prepare(`
+      await db.prepare(`
         INSERT INTO officer_appointments (id, officer_id, appointed_by, role_code, jurisdiction_id, effective_from, action, created_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       `).run('app-' + Date.now(), id, user.id, new_role, new_jurisdiction, effective_from, 'APPOINTED', created_at);
@@ -89,25 +84,25 @@ export async function POST(req: NextRequest) {
     if (action === 'TRANSFER_OFFICER') {
       if (!officer_uid || !new_role || !new_jurisdiction) return errorResponse('VALIDATION_ERROR', 'Missing fields');
       
-      const officer = db.prepare('SELECT id FROM officers WHERE officer_uid = ?').get(officer_uid) as any;
+      const officer = await db.prepare('SELECT id FROM officers WHERE officer_uid = ?').get(officer_uid) as any;
       if (!officer) return errorResponse('NOT_FOUND', 'Officer not found');
 
       const created_at = new Date().toISOString();
       const effective_from = created_at;
 
       // End previous appointment
-      db.prepare(`
+      await db.prepare(`
         UPDATE officer_appointments SET effective_to = ? WHERE officer_id = ? AND effective_to IS NULL
       `).run(created_at, officer.id);
 
       // Add new appointment
-      db.prepare(`
+      await db.prepare(`
         INSERT INTO officer_appointments (id, officer_id, appointed_by, role_code, jurisdiction_id, effective_from, action, created_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       `).run('app-' + Date.now(), officer.id, user.id, new_role, new_jurisdiction, effective_from, 'TRANSFERRED', created_at);
 
       // Update primary officer record
-      db.prepare(`
+      await db.prepare(`
         UPDATE officers 
         SET role_code = ?, jurisdiction_id = ?, effective_from = ?, updated_at = ?
         WHERE id = ?

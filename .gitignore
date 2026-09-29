@@ -1,84 +1,127 @@
-# Dependencies
+# ==============================================================================
+# Bhoomisetu — .gitignore
+# Excludes dependencies, builds, caches, secrets, test artifacts, and OS temp files.
+# ==============================================================================
+
+# Dependencies & Package Managers
 node_modules/
 .pnpm-store/
+.yarn/
+package-lock.json
+yarn.lock
 
-# Next.js build & standalone outputs
+# Next.js Build Outputs, Standalone & Bundler Caches
 .next/
 out/
 build/
 dist/
+.turbo/
+.swc/
+.cache/
 
-# TypeScript compiler cache
+# TypeScript Compiler Cache
 *.tsbuildinfo
+tsconfig.tsbuildinfo
 
-# SQLite database files & write-ahead logs
+# SQLite Database Files, WAL, Shared Memory & Backups
 data/*.db
-data/*.db-journal
-data/*.db-wal
-data/*.db-shm
+data/*.db-*
+data/*.sqlite
+data/*.sqlite*
+*.sqlite
+*.sqlite3
+*.db
+*.db-shm
+*.db-wal
+*.db-journal
+dump.rdb
+*.sql
+*.dump
 
-# Local file storage (keep folder with .gitkeep)
+# Local File Storage (Keep folder structure with .gitkeep)
 storage/uploads/*
 !storage/uploads/.gitkeep
+storage/temp/*
 
-# Environment variables & secrets
+# Environment Variables, Secrets & Private Keys
 .env
-.env*.local
-.env.development.local
-.env.test.local
-.env.production.local
+.env.*
+!.env.example
 *.pem
 *.key
 *.cert
 *.crt
+*.pfx
+*.p12
 
-# Credentials and sensitive output
+# Credentials, Dumps & Sensitive Output
 data/seed-credentials.md
 *credentials*
+docker-compose.override.yml
 
-# Logs
+# Logs & Process IDs
 *.log
+*.log.*
+logs/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+*.pid
+*.pid.lock
+*.seed
 
-# Test & coverage outputs
+# Test & Coverage Outputs
 coverage/
 playwright-report/
 test-results/
+.playwright/
 
-# OS-specific temporary files
+# OS-Specific Temporary Files & Thumbnails
 .DS_Store
 .DS_Store?
 ._*
 Thumbs.db
 ehthumbs.db
+[Dd]esktop.ini
+$RECYCLE.BIN/
 
-# IDE, Editor configurations & AI Assistant files
+# IDE, Editor Configurations & AI Assistant Files
 .vscode/
 .idea/
+*.sublime-project
+*.sublime-workspace
 *.swp
 *.swo
 *~
+.cursor/
+.windsurf/
+.claude/
 .agents/
 .antigravity/
 .gemini/
+
+# Scratch & Temporary Folders
 scratch/
 temp/
 tmp/
+.temp/
 *.tmp
 *.bak
+*.orig
+debug/
+*.debug
 
-# Markdown documentation files
+# Markdown Documentation Files
 *.md
 **/*.md
 *.markdown
 **/*.markdown
 
-# Office, PDF & Report documents
+# Office, PDF & Report Documents
 *.docx
 *.doc
+~$*.docx
 *.pdf
 *.pptx
 *.ppt
@@ -87,10 +130,12 @@ tmp/
 *.csv
 *.txt
 
-# Documentation directory
+# Documentation Directory
 docs/
 
-# Media & Recordings
+# Media & Recordings (Captured browser sessions & debug clips)
 *.webp
 *.mp4
 *.webm
+*.mov
+*.avi

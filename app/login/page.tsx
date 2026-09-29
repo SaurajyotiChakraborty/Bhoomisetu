@@ -1,8 +1,20 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import {
+  ArrowLeft,
+  User,
+  Building2,
+  Contact,
+  Lock,
+  Eye,
+  EyeOff,
+  AlertCircle,
+  LogIn,
+  KeyRound,
+} from 'lucide-react';
 
 type LoginMode = 'CITIZEN' | 'EMPLOYEE';
 
@@ -14,6 +26,21 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const id = params.get('identifier');
+      const pw = params.get('password');
+      if (id) {
+        setIdentifier(id);
+        setMode('CITIZEN');
+      }
+      if (pw) {
+        setPassword(pw);
+      }
+    }
+  }, []);
 
   const executeLogin = async (id: string, pass: string, m: LoginMode) => {
     setError('');
@@ -79,7 +106,7 @@ export default function LoginPage() {
             className="inline-flex items-center gap-2 text-sm text-[var(--color-text-secondary)] hover:text-indigo-400 transition-colors group"
             id="back-to-home-link"
           >
-            <span className="material-symbols-outlined text-base group-hover:-translate-x-1 transition-transform">arrow_back</span>
+            <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
             Back to Home
           </Link>
           <Link href="/" className="flex items-center gap-2">
@@ -114,8 +141,12 @@ export default function LoginPage() {
                 }`}
                 id={`login-tab-${m.toLowerCase()}`}
               >
-                <span className="material-symbols-outlined text-lg">{m === 'CITIZEN' ? 'person' : 'assured_workload'}</span>
-                {m === 'CITIZEN' ? 'Citizen' : 'Government'}
+                {m === 'CITIZEN' ? (
+                  <User className="w-4 h-4 shrink-0" />
+                ) : (
+                  <Building2 className="w-4 h-4 shrink-0" />
+                )}
+                <span>{m === 'CITIZEN' ? 'Citizen' : 'Government'}</span>
               </button>
             ))}
           </div>
@@ -127,7 +158,7 @@ export default function LoginPage() {
                 {mode === 'CITIZEN' ? 'Citizen ID or Email' : 'Officer ID'}
               </label>
               <div className="relative mt-1">
-                <span className="material-symbols-outlined text-lg text-[var(--color-text-muted)] absolute left-3 top-1/2 -translate-y-1/2">badge</span>
+                <Contact className="w-4 h-4 text-[var(--color-text-muted)] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                 <input
                   id="login-identifier"
                   type="text"
@@ -151,7 +182,7 @@ export default function LoginPage() {
                 </Link>
               </div>
               <div className="relative mt-1">
-                <span className="material-symbols-outlined text-lg text-[var(--color-text-muted)] absolute left-3 top-1/2 -translate-y-1/2">lock</span>
+                <Lock className="w-4 h-4 text-[var(--color-text-muted)] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                 <input
                   id="login-password"
                   type={showPassword ? 'text' : 'password'}
@@ -165,17 +196,18 @@ export default function LoginPage() {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)] hover:text-white"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)] hover:text-white transition-colors"
                   tabIndex={-1}
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
                 >
-                  <span className="material-symbols-outlined text-lg">{showPassword ? 'visibility_off' : 'visibility'}</span>
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
             </div>
 
             {error && (
               <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm animate-scale-in flex items-center gap-2" id="login-error">
-                <span className="material-symbols-outlined text-lg shrink-0">error</span>
+                <AlertCircle className="w-4 h-4 shrink-0" />
                 <span>{error}</span>
               </div>
             )}
@@ -196,7 +228,7 @@ export default function LoginPage() {
                 </span>
               ) : (
                 <span className="flex items-center justify-center gap-2">
-                  <span className="material-symbols-outlined text-lg">login</span>
+                  <LogIn className="w-4 h-4" />
                   Sign In
                 </span>
               )}
@@ -219,11 +251,11 @@ export default function LoginPage() {
             </p>
           )}
 
-          {/* Dev Quick Login — Populate Credentials */}
+          {/* Examiner & Demo Quick Login — Populate Credentials */}
           <div className="mt-6 pt-5 border-t border-[var(--color-border)]">
-            <p className="text-xs text-[var(--color-text-muted)] text-center mb-3 flex items-center justify-center gap-2 font-medium">
-              <span className="material-symbols-outlined text-sm text-amber-400">key</span>
-              <span>Quick Fill Demo Credentials</span>
+            <p className="text-xs text-[var(--color-text-muted)] text-center mb-3 flex items-center justify-center gap-1.5 font-medium">
+              <KeyRound className="w-3.5 h-3.5 text-amber-400" />
+              <span>Examiner Test Accounts (Password: <code className="text-amber-300 font-mono">Demo@12345</code>)</span>
             </p>
             <div className="flex flex-wrap gap-2">
               {[

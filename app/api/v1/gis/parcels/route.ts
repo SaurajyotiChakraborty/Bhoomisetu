@@ -1,16 +1,9 @@
 import { NextRequest } from 'next/server';
+import { getDb } from '@/lib/db';
 import { getAuthUser, successResponse, errorResponse } from '@/lib/api/helpers';
-import Database from 'better-sqlite3';
-import path from 'path';
 import crypto from 'crypto';
 import * as turf from '@turf/turf';
 
-function getDb() {
-  const DB_PATH = process.env.DATABASE_URL || path.join(process.cwd(), 'data', 'bhoomisetu.db');
-  const db = new Database(DB_PATH);
-  db.pragma('foreign_keys = ON');
-  return db;
-}
 
 function maskName(name: string): string {
   if (!name) return 'Protected Owner';
@@ -71,7 +64,7 @@ export async function GET(req: NextRequest) {
 
     query += ` ORDER BY p.village, p.survey_number`;
 
-    const rows = db.prepare(query).all(...params) as any[];
+    const rows = await db.prepare(query).all(...params) as any[];
 
     // Map privacy-aware fields
     const isAuthenticated = !!user;
@@ -203,7 +196,7 @@ export async function POST(req: NextRequest) {
     const finalDeclaredArea = declared_area ? Number(declared_area) : Math.round(computedAreaSqm);
 
     // Look up jurisdiction by village name
-    const jurisdiction = db.prepare(`
+    const jurisdiction = await db.prepare(`
       SELECT id, path FROM jurisdictions 
       WHERE type = 'VILLAGE' AND UPPER(name) = UPPER(?) 
       LIMIT 1
@@ -218,7 +211,7 @@ export async function POST(req: NextRequest) {
     const parcelUid = `AS-SONITPUR-TEZPUR-${cleanVillage}-${cleanSurvey}-${cleanSub}`;
 
     // Check if parcel already exists
-    const existing = db.prepare('SELECT id FROM parcels WHERE parcel_uid = ?').get(parcelUid);
+    const existing = await db.prepare('SELECT id FROM parcels WHERE parcel_uid = ?').get(parcelUid);
     if (existing) {
       return errorResponse('CONFLICT', `Parcel UID ${parcelUid} already exists in the system.`, 409);
     }
@@ -235,17 +228,17 @@ export async function POST(req: NextRequest) {
     let finalOwnerId = owner_id;
     if (!finalOwnerId) {
       if (user && user.role === 'CITIZEN') {
-        const citizen = db.prepare('SELECT id FROM citizens WHERE citizen_uid = ?').get(user.uid) as any;
+        const citizen = await db.prepare('SELECT id FROM citizens WHERE citizen_uid = ?').get(user.uid) as any;
         finalOwnerId = citizen?.id;
       }
       if (!finalOwnerId) {
-        const firstCitizen = db.prepare('SELECT id FROM citizens LIMIT 1').get() as any;
+        const firstCitizen = await db.prepare('SELECT id FROM citizens LIMIT 1').get() as any;
         finalOwnerId = firstCitizen?.id || null;
       }
     }
 
     // Insert new parcel into database
-    const insertParcel = db.prepare(`
+    const insertParcel = await db.prepare(`
       INSERT INTO parcels (
         id, parcel_uid, state, district, subdivision, tehsil, circle, village,
         jurisdiction_id, survey_number, subdivision_number, patta_number, khatian_number,
@@ -294,7 +287,7 @@ export async function POST(req: NextRequest) {
     if (finalOwnerId) {
       const taxRatePerSqm = land_type === 'COMMERCIAL' ? 1.5 : land_type === 'RESIDENTIAL' ? 0.8 : 0.2;
       const baseLiability = Math.round(finalDeclaredArea * taxRatePerSqm);
-      db.prepare(`
+      await db.prepare(`
         INSERT INTO land_taxes (
           id, parcel_id, citizen_id, financial_year, base_liability,
           accumulated_arrears, late_surcharges, total_outstanding,
@@ -312,7 +305,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Append to audit log
-    db.prepare(`
+    await db.prepare(`
       INSERT INTO audit_log (
         actor_id, actor_type, actor_role_code, actor_jurisdiction_id,
         action, entity_type, entity_id, previous_status, new_status,

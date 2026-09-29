@@ -1,12 +1,7 @@
 import { NextRequest } from 'next/server';
+import { getDb } from '@/lib/db';
 import { requireAuth, errorResponse, successResponse } from '@/lib/api/helpers';
-import Database from 'better-sqlite3';
-import path from 'path';
 
-function getDb() {
-  const DB_PATH = process.env.DATABASE_URL || path.join(process.cwd(), 'data', 'bhoomisetu.db');
-  return new Database(DB_PATH);
-}
 
 export async function GET(req: NextRequest) {
   const authResult = await requireAuth(req);
@@ -64,7 +59,7 @@ export async function GET(req: NextRequest) {
 
     query += ` ORDER BY p.parcel_uid ASC LIMIT 500`;
 
-    const rawParcels = db.prepare(query).all(...params);
+    const rawParcels = await db.prepare(query).all(...params);
 
     parcels = rawParcels.map((p: any) => {
       return {

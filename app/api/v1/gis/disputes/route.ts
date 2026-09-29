@@ -1,14 +1,7 @@
 import { NextRequest } from 'next/server';
+import { getDb } from '@/lib/db';
 import { getAuthUser, successResponse, errorResponse } from '@/lib/api/helpers';
-import Database from 'better-sqlite3';
-import path from 'path';
 
-function getDb() {
-  const DB_PATH = process.env.DATABASE_URL || path.join(process.cwd(), 'data', 'bhoomisetu.db');
-  const db = new Database(DB_PATH);
-  db.pragma('foreign_keys = ON');
-  return db;
-}
 
 export async function POST(req: NextRequest) {
   const user = await getAuthUser(req);
@@ -23,7 +16,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Check parcel
-    const parcel = db.prepare('SELECT id, parcel_uid, current_owner_id FROM parcels WHERE id = ?').get(parcel_id) as any;
+    const parcel = await db.prepare('SELECT id, parcel_uid, current_owner_id FROM parcels WHERE id = ?').get(parcel_id) as any;
     if (!parcel) {
       return errorResponse('NOT_FOUND', 'Parcel not found.', 404);
     }
@@ -31,12 +24,12 @@ export async function POST(req: NextRequest) {
     // Determine complainant ID
     let finalComplainantId = complainant_id;
     if (!finalComplainantId && user) {
-      const citizen = db.prepare('SELECT id FROM citizens WHERE citizen_uid = ?').get(user.uid) as any;
+      const citizen = await db.prepare('SELECT id FROM citizens WHERE citizen_uid = ?').get(user.uid) as any;
       finalComplainantId = citizen?.id;
     }
     if (!finalComplainantId) {
       // Pick first citizen as default complainant if guest
-      const anyCitizen = db.prepare('SELECT id FROM citizens WHERE id != ? LIMIT 1').get(parcel.current_owner_id || '') as any;
+      const anyCitizen = await db.prepare('SELECT id FROM citizens WHERE id != ? LIMIT 1').get(parcel.current_owner_id || '') as any;
       finalComplainantId = anyCitizen?.id || parcel.current_owner_id;
     }
 
@@ -45,7 +38,7 @@ export async function POST(req: NextRequest) {
     const now = new Date().toISOString();
 
     // Insert dispute
-    db.prepare(`
+    await db.prepare(`
       INSERT INTO land_disputes (
         id, dispute_uid, parcel_id, complainant_id, category,
         description, status, created_at, updated_at
@@ -62,14 +55,14 @@ export async function POST(req: NextRequest) {
     );
 
     // Update parcel encumbrance status to DISPUTED
-    db.prepare(`
+    await db.prepare(`
       UPDATE parcels
       SET encumbrance_status = 'DISPUTED', updated_at = ?
       WHERE id = ?
     `).run(now, parcel.id);
 
     // Log to audit log
-    db.prepare(`
+    await db.prepare(`
       INSERT INTO audit_log (
         actor_id, actor_type, actor_role_code,
         action, entity_type, entity_id, previous_status, new_status,

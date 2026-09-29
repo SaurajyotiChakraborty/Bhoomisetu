@@ -1,4 +1,6 @@
 # Multi-stage production Dockerfile for Bhoomisetu on AWS (ECS / App Runner / EC2)
+# DATABASE_URL, JWT_SECRET, REFRESH_SECRET, ENCRYPTION_KEY must be supplied at runtime
+# via ECS Task Definition env vars or AWS Secrets Manager injection.
 
 # Stage 1: Dependencies
 FROM node:20-alpine AS deps
@@ -21,9 +23,8 @@ COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
 
-# Seed database for standalone container so demo accounts & parcels are immediately available
-RUN pnpm db:migrate && pnpm db:seed
-
+# Build only — NO db:migrate or db:seed here.
+# Migrations and seeding run at container start via the entrypoint script.
 RUN pnpm build
 
 # Stage 3: Runner
@@ -39,17 +40,25 @@ ENV HOSTNAME="0.0.0.0"
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
-# Ensure persistent directories exist with appropriate write permissions
+# Persistent directories for local storage fallback (unused when S3 is set)
 RUN mkdir -p /app/data /app/storage/uploads && chown -R nextjs:nodejs /app/data /app/storage
 
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/package.json ./package.json
-COPY --from=builder --chown=nextjs:nodejs /app/data ./data
+# Copy migration and seed scripts so entrypoint can invoke pnpm db:migrate-pg
+COPY --from=builder /app/lib ./lib
+COPY --from=builder /app/scripts ./scripts
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/tsconfig.json ./tsconfig.json
+
+# Entrypoint: run migrations then start the server
+COPY scripts/entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
 USER nextjs
 
 EXPOSE 3000
 
-CMD ["node", "server.js"]
+CMD ["/entrypoint.sh"]

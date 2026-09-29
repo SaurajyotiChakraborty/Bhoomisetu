@@ -8,16 +8,8 @@ import { encrypt, maskAadhaar, maskPAN } from '@/lib/auth/encryption';
 import { errorResponse, successResponse, createRequestId, getClientIP } from '@/lib/api/helpers';
 import { notifyRegistrationCredentials } from '@/lib/services/notification-service';
 import { createAuditRow, auditSystem } from '@/lib/services/audit-service';
-import Database from 'better-sqlite3';
-import path from 'path';
+import { getDb } from '@/lib/db';
 import crypto from 'crypto';
-
-function getDb() {
-  const DB_PATH = process.env.DATABASE_URL || path.join(process.cwd(), 'data', 'bhoomisetu.db');
-  const db = new Database(DB_PATH);
-  db.pragma('foreign_keys = ON');
-  return db;
-}
 
 export async function POST(req: NextRequest) {
   const requestId = createRequestId();
@@ -36,22 +28,22 @@ export async function POST(req: NextRequest) {
 
     try {
       // Check uniqueness: email
-      const existingEmail = db.prepare('SELECT id FROM citizens WHERE email = ?').get(data.email);
+      const existingEmail = await db.prepare('SELECT id FROM citizens WHERE email = ?').get(data.email);
       if (existingEmail) {
         return errorResponse('CONFLICT', 'Email already registered', 409, requestId);
       }
 
       // Check uniqueness: mobile
-      const existingMobile = db.prepare('SELECT id FROM citizens WHERE mobile = ?').get(data.mobile);
+      const existingMobile = await db.prepare('SELECT id FROM citizens WHERE mobile = ?').get(data.mobile);
       if (existingMobile) {
         return errorResponse('CONFLICT', 'Mobile number already registered', 409, requestId);
       }
 
       // Generate citizen UID — BSC-<STATE>-<YYYY>-<8 digits>
       const year = new Date().getFullYear();
-      const lastCitizen = db.prepare(
+      const lastCitizen = (await db.prepare(
         "SELECT citizen_uid FROM citizens WHERE citizen_uid LIKE ? ORDER BY citizen_uid DESC LIMIT 1"
-      ).get(`BSC-AS-${year}-%`) as { citizen_uid: string } | undefined;
+      ).get(`BSC-AS-${year}-%`)) as { citizen_uid: string } | undefined;
 
       let nextNum = 1;
       if (lastCitizen) {
@@ -74,12 +66,12 @@ export async function POST(req: NextRequest) {
       const now = new Date().toISOString();
 
       // Insert citizen
-      db.prepare(`
+      await db.prepare(`
         INSERT INTO citizens (id, citizen_uid, full_name, email, mobile,
           aadhaar_encrypted, aadhaar_masked, pan_encrypted, pan_masked,
           date_of_birth, address_line1, address_line2, village_town, district, state, pin,
           password_hash, status, must_change_password, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'ACTIVE', 0, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'ACTIVE', false, ?, ?)
       `).run(
         id, citizenUid, data.fullName, data.email, data.mobile,
         aadhaarEnc, aadhaarMask, panEnc, panMask,
@@ -101,7 +93,7 @@ export async function POST(req: NextRequest) {
         ipAddress: getClientIP(req),
         userAgent: req.headers.get('user-agent'),
       });
-      db.prepare(`
+      await db.prepare(`
         INSERT INTO audit_log (actor_id, actor_type, actor_role_code, actor_jurisdiction_id,
           action, entity_type, entity_id, previous_status, new_status, reason, metadata,
           ip_address, user_agent, chain_hash, created_at)
@@ -119,8 +111,7 @@ export async function POST(req: NextRequest) {
       return successResponse({
         message: 'Registration successful',
         citizenUid,
-        // In dev mode, also return the password for convenience
-        ...(process.env.NODE_ENV !== 'production' && { initialPassword }),
+        initialPassword,
       }, 201);
     } finally {
       db.close();

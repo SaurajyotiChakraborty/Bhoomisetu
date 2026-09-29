@@ -2,18 +2,11 @@
 // POST /api/v1/transfers
 
 import { NextRequest } from 'next/server';
+import { getDb } from '@/lib/db';
 import { createTransferSchema } from '@/lib/validations/schemas';
 import { requireAuth, errorResponse, successResponse, createRequestId } from '@/lib/api/helpers';
-import Database from 'better-sqlite3';
-import path from 'path';
 import crypto from 'crypto';
 
-function getDb() {
-  const DB_PATH = process.env.DATABASE_URL || path.join(process.cwd(), 'data', 'bhoomisetu.db');
-  const db = new Database(DB_PATH);
-  db.pragma('foreign_keys = ON');
-  return db;
-}
 
 export async function POST(req: NextRequest) {
   const authResult = await requireAuth(req);
@@ -38,7 +31,7 @@ export async function POST(req: NextRequest) {
 
     try {
       // Verify parcel exists and belongs to the seller
-      const parcel = db.prepare(`
+      const parcel = await db.prepare(`
         SELECT p.id, p.parcel_uid, p.current_owner_id, p.encumbrance_status, p.is_locked,
                c.citizen_uid as owner_uid
         FROM parcels p
@@ -66,7 +59,7 @@ export async function POST(req: NextRequest) {
       }
 
       // Verify buyer exists
-      const buyer = db.prepare(
+      const buyer = await db.prepare(
         'SELECT id, citizen_uid, full_name, email FROM citizens WHERE citizen_uid = ? OR id = ?'
       ).get(buyerUid, buyerUid) as any;
 
@@ -79,7 +72,7 @@ export async function POST(req: NextRequest) {
       }
 
       // Check for existing active transfer on this parcel
-      const existingTransfer = db.prepare(`
+      const existingTransfer = await db.prepare(`
         SELECT id FROM transfers WHERE parcel_id = ? AND status NOT IN ('TRANSFER_COMPLETED', 'REJECTED', 'CANCELLED_BY_APPLICANT', 'COUNTERPARTY_DECLINED')
       `).get(data.parcelId) as any;
 
@@ -89,7 +82,7 @@ export async function POST(req: NextRequest) {
 
       // Generate application UID
       const year = new Date().getFullYear();
-      const lastTransfer = db.prepare(
+      const lastTransfer = await db.prepare(
         "SELECT application_uid FROM transfers WHERE application_uid LIKE ? ORDER BY application_uid DESC LIMIT 1"
       ).get(`LTA-${year}-%`) as { application_uid: string } | undefined;
 
@@ -102,9 +95,9 @@ export async function POST(req: NextRequest) {
 
       const id = crypto.randomUUID();
       const now = new Date().toISOString();
-      const seller = db.prepare('SELECT id FROM citizens WHERE citizen_uid = ?').get(sellerUid) as any;
+      const seller = await db.prepare('SELECT id FROM citizens WHERE citizen_uid = ?').get(sellerUid) as any;
 
-      db.prepare(`
+      await db.prepare(`
         INSERT INTO transfers (id, application_uid, parcel_id, seller_id, buyer_id,
           transfer_type, consideration_amount, status, is_partial_transfer,
           partial_area, partial_geometry, handshake_attempts, handshake_resends_used,
@@ -145,7 +138,7 @@ export async function GET(req: NextRequest) {
 
   try {
     if (user.role === 'CITIZEN') {
-      const transfers = db.prepare(`
+      const transfers = await db.prepare(`
         SELECT t.id, t.application_uid, t.transfer_type, t.consideration_amount, t.status,
                t.created_at, t.updated_at,
                p.parcel_uid, p.village, p.survey_number, p.land_type, p.area_declared_sqm,
@@ -164,7 +157,7 @@ export async function GET(req: NextRequest) {
 
       return successResponse({ transfers, count: transfers.length });
     } else {
-      const transfers = db.prepare(`
+      const transfers = await db.prepare(`
         SELECT t.id, t.application_uid, t.transfer_type, t.consideration_amount, t.status,
                t.created_at, t.updated_at,
                p.parcel_uid, p.village, p.survey_number, p.land_type, p.area_declared_sqm,

@@ -1,12 +1,7 @@
 import { NextRequest } from 'next/server';
+import { getDb } from '@/lib/db';
 import { requireAuth, errorResponse, successResponse } from '@/lib/api/helpers';
-import Database from 'better-sqlite3';
-import path from 'path';
 
-function getDb() {
-  const DB_PATH = process.env.DATABASE_URL || path.join(process.cwd(), 'data', 'bhoomisetu.db');
-  return new Database(DB_PATH);
-}
 
 export async function POST(req: NextRequest) {
   const authResult = await requireAuth(req);
@@ -41,7 +36,7 @@ export async function POST(req: NextRequest) {
     const db = getDb();
     
     // Get the tax record
-    const tax = db.prepare('SELECT * FROM land_taxes WHERE id = ?').get(taxId) as any;
+    const tax = await db.prepare('SELECT * FROM land_taxes WHERE id = ?').get(taxId) as any;
     
     if (!tax) {
       return errorResponse('NOT_FOUND', 'Tax record not found', 404);
@@ -57,7 +52,7 @@ export async function POST(req: NextRequest) {
     
     const collectedBy = paymentMode === 'CASH' && user.role === 'VILLAGE_OFF' ? user.id : null;
 
-    db.prepare(`
+    await db.prepare(`
       UPDATE land_taxes 
       SET status = 'PAID', paid_at = ?, receipt_number = ?, payment_mode = ?, collected_by = ?, updated_at = ?
       WHERE id = ?

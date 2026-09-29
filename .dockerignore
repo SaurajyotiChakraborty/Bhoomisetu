@@ -1,18 +1,26 @@
 # Dependencies and builds
 node_modules
 .pnpm-store
+.yarn
 .next
 .turbo
+.swc
+.cache
 dist
 build
 
-# Version control and agents
+# Version control, editor configs and agents
 .git
 .gitignore
+.dockerignore
 .agents
 .antigravity
 .gemini
+.cursor
+.windsurf
+.claude
 .vscode
+.idea
 .github
 
 # Documentation and reports
@@ -33,19 +41,31 @@ docs
 *.test.ts
 *.spec.ts
 scratch
+temp
+tmp
 tests
 test-results
+coverage
+playwright-report
+.playwright
 
-# Storage, logs, and environments
+# Storage, logs, databases and environments
 storage/uploads/*
 !storage/uploads/.gitkeep
-data/*.db
-data/*.db-wal
-data/*.db-shm
+data/*.db*
+data/*.sqlite*
 data/*.md
 *credentials*
-.env*.local
+.env
+.env.*
+!.env.example
 *.log
+*.log.*
 npm-debug.log*
 yarn-debug.log*
 pnpm-debug.log*
+*.tsbuildinfo
+dump.rdb
+*.sql
+*.dump
+docker-compose.override.yml

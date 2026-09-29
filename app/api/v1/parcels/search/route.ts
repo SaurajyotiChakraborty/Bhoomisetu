@@ -1,14 +1,7 @@
 import { NextRequest } from 'next/server';
+import { getDb } from '@/lib/db';
 import { requireAuth, errorResponse, successResponse } from '@/lib/api/helpers';
-import Database from 'better-sqlite3';
-import path from 'path';
 
-function getDb() {
-  const DB_PATH = process.env.DATABASE_URL || path.join(process.cwd(), 'data', 'bhoomisetu.db');
-  const db = new Database(DB_PATH);
-  db.pragma('foreign_keys = ON');
-  return db;
-}
 
 export async function GET(req: NextRequest) {
   const authResult = await requireAuth(req);
@@ -29,8 +22,8 @@ export async function GET(req: NextRequest) {
   const db = getDb();
 
   try {
-    // 1. Fetch Parcel and Current Owner (include email and mobile since user typed exactly the UID)
-    const parcel = db.prepare(`
+    // 1. Fetch Parcel and Current Owner
+    const parcel = await db.prepare(`
       SELECT p.*, c.full_name as owner_name, c.email as owner_email, c.mobile as owner_mobile, c.citizen_uid as owner_uid
       FROM parcels p
       LEFT JOIN citizens c ON p.current_owner_id = c.id
@@ -41,8 +34,17 @@ export async function GET(req: NextRequest) {
       return errorResponse('NOT_FOUND', 'Land record not found. Please verify the Unique Land ID.', 404);
     }
 
+    // Never leak counterparty PII (Invariant 12)
+    const isOwner = user.uid === parcel.owner_uid;
+    const safeParcel = {
+      ...parcel,
+      owner_email: isOwner ? parcel.owner_email : undefined,
+      owner_mobile: isOwner ? parcel.owner_mobile : undefined,
+      owner_uid: isOwner ? parcel.owner_uid : (parcel.owner_uid ? parcel.owner_uid.slice(0, 12) + '****' + parcel.owner_uid.slice(-4) : undefined),
+    };
+
     // 2. Fetch Disputes for this parcel
-    const disputes = db.prepare(`
+    const disputes = await db.prepare(`
       SELECT category, status, description, created_at, resolution_notes
       FROM land_disputes
       WHERE parcel_id = ?
@@ -50,7 +52,7 @@ export async function GET(req: NextRequest) {
     `).all(parcel.id);
 
     // 3. Fetch Ownership History (Chain of Title)
-    const history = db.prepare(`
+    const history = await db.prepare(`
       SELECT h.*, 
              from_c.full_name as from_owner_name, 
              to_c.full_name as to_owner_name
@@ -62,7 +64,7 @@ export async function GET(req: NextRequest) {
     `).all(parcel.id);
 
     return successResponse({
-      parcel,
+      parcel: safeParcel,
       disputes,
       history
     });

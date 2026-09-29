@@ -1,12 +1,7 @@
 import { NextRequest } from 'next/server';
+import { getDb } from '@/lib/db';
 import { requireAuth, errorResponse, successResponse } from '@/lib/api/helpers';
-import Database from 'better-sqlite3';
-import path from 'path';
 
-function getDb() {
-  const DB_PATH = process.env.DATABASE_URL || path.join(process.cwd(), 'data', 'bhoomisetu.db');
-  return new Database(DB_PATH);
-}
 
 export async function GET(req: NextRequest) {
   const authResult = await requireAuth(req);
@@ -27,7 +22,7 @@ export async function GET(req: NextRequest) {
     // In a real system we'd join with jurisdictions table, but for now we can extract unique villages from parcels
     // where circle = user.jurisdiction_name. Or just get all distinct villages for demonstration.
     
-    const zones = db.prepare(`
+    const zones = await db.prepare(`
       SELECT DISTINCT village as name, village as id
       FROM parcels
       WHERE village IS NOT NULL

@@ -5,16 +5,16 @@ services:
     image: postgis/postgis:15-3.3-alpine
     container_name: bhoomisetu_postgres
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: bhoomisetu
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: ${POSTGRES_DB:-bhoomisetu}
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d bhoomisetu"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-bhoomisetu}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -39,8 +39,8 @@ services:
     image: elestio/minio:latest
     container_name: bhoomisetu_minio
     environment:
-      MINIO_ROOT_USER: admin
-      MINIO_ROOT_PASSWORD: password123
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?MINIO_ROOT_USER is required}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD is required}
     ports:
       - "9000:9000"   # API Port
       - "9001:9001"   # Web Console Port
@@ -55,6 +55,8 @@ services:
       retries: 5
 
   # Bhoomisetu Next.js Web Application (Standalone Production Container)
+  # All secrets must be provided via a .env file or environment variables.
+  # NEVER hardcode secrets here. See .env.example for required variables.
   app:
     build:
       context: .
@@ -65,14 +67,17 @@ services:
       - APP_ENV=production
       - PORT=3000
       - HOSTNAME=0.0.0.0
-      - DATABASE_URL=postgresql://postgres:password@db:5432/bhoomisetu
-      - REDIS_URL=redis://redis:6379
-      - S3_ENDPOINT=http://minio:9000
-      - S3_ACCESS_KEY=admin
-      - S3_SECRET_KEY=password123
-      - S3_BUCKET=bhoomisetu-parcels
-      - S3_REGION=us-east-1
-      - JWT_SECRET=bhoomisetu-demo-secret-key-2026-production
+      - DATABASE_URL=${DATABASE_URL:?DATABASE_URL is required}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
+      - S3_ENDPOINT=${S3_ENDPOINT:-http://minio:9000}
+      - S3_ACCESS_KEY=${MINIO_ROOT_USER:?MINIO_ROOT_USER is required}
+      - S3_SECRET_KEY=${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD is required}
+      - S3_BUCKET=${S3_BUCKET:-bhoomisetu-parcels}
+      - S3_REGION=${S3_REGION:-ap-south-1}
+      - JWT_SECRET=${JWT_SECRET:?JWT_SECRET is required}
+      - REFRESH_SECRET=${REFRESH_SECRET:?REFRESH_SECRET is required}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:?ENCRYPTION_KEY is required}
+      - PG_SSL=${PG_SSL:-true}
     ports:
       - "3000:3000"
     depends_on:

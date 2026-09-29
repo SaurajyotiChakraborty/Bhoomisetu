@@ -2,16 +2,9 @@
 // GET /api/v1/parcels/mine — citizen's owned parcels
 
 import { NextRequest } from 'next/server';
+import { getDb } from '@/lib/db';
 import { requireAuth, errorResponse, successResponse } from '@/lib/api/helpers';
-import Database from 'better-sqlite3';
-import path from 'path';
 
-function getDb() {
-  const DB_PATH = process.env.DATABASE_URL || path.join(process.cwd(), 'data', 'bhoomisetu.db');
-  const db = new Database(DB_PATH);
-  db.pragma('foreign_keys = ON');
-  return db;
-}
 
 export async function GET(req: NextRequest) {
   const authResult = await requireAuth(req);
@@ -23,7 +16,7 @@ export async function GET(req: NextRequest) {
   const db = getDb();
   try {
     if (user.role === 'CITIZEN') {
-      const parcels = db.prepare(`
+      const parcels = await db.prepare(`
         SELECT p.id, p.parcel_uid, p.state, p.district, p.subdivision, p.tehsil, p.circle, p.village,
                p.survey_number, p.subdivision_number, p.patta_number, p.khatian_number,
                p.land_type, p.land_class, p.area_declared_sqm, p.area_computed_sqm,
@@ -47,7 +40,7 @@ export async function GET(req: NextRequest) {
         return errorResponse('FORBIDDEN_ACTION', 'No jurisdiction assigned', 403, requestId);
       }
 
-      const parcels = db.prepare(`
+      const parcels = await db.prepare(`
         SELECT p.id, p.parcel_uid, p.state, p.district, p.village,
                p.survey_number, p.patta_number, p.land_type,
                p.area_declared_sqm, p.area_computed_sqm,

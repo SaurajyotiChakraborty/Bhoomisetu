@@ -1,15 +1,8 @@
 import { NextRequest } from 'next/server';
+import { getDb } from '@/lib/db';
 import { requireAuth, errorResponse, successResponse } from '@/lib/api/helpers';
-import Database from 'better-sqlite3';
-import path from 'path';
 import crypto from 'crypto';
 
-function getDb() {
-  const DB_PATH = process.env.DATABASE_URL || path.join(process.cwd(), 'data', 'bhoomisetu.db');
-  const db = new Database(DB_PATH);
-  db.pragma('foreign_keys = ON');
-  return db;
-}
 
 export async function GET(req: NextRequest) {
   const authResult = await requireAuth(req);
@@ -23,7 +16,7 @@ export async function GET(req: NextRequest) {
   const db = getDb();
 
   try {
-    const disputes = db.prepare(`
+    const disputes = await db.prepare(`
       SELECT d.*, p.parcel_uid, p.village, p.survey_number
       FROM land_disputes d
       JOIN parcels p ON d.parcel_id = p.id
@@ -59,7 +52,7 @@ export async function POST(req: NextRequest) {
       return errorResponse('VALIDATION_ERROR', 'Missing required fields', 400);
     }
 
-    const parcel = db.prepare('SELECT id FROM parcels WHERE id = ? AND current_owner_id = ?').get(parcelId, user.id);
+    const parcel = await db.prepare('SELECT id FROM parcels WHERE id = ? AND current_owner_id = ?').get(parcelId, user.id);
     if (!parcel) {
       return errorResponse('NOT_FOUND', 'Parcel not found or you are not the owner', 404);
     }
@@ -68,7 +61,7 @@ export async function POST(req: NextRequest) {
     const disputeId = 'disp-' + crypto.randomUUID();
     const disputeUid = 'DSP-' + Date.now().toString().slice(-6) + '-' + Math.floor(Math.random() * 1000);
 
-    db.prepare(`
+    await db.prepare(`
       INSERT INTO land_disputes (id, dispute_uid, parcel_id, complainant_id, category, description, status, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, 'OPEN', ?, ?)
     `).run(disputeId, disputeUid, parcelId, user.id, category, description, now, now);
